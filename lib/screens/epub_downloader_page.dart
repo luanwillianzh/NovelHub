@@ -8,6 +8,9 @@ import 'package:dio/dio.dart';
 import 'package:external_path/external_path.dart';
 import '../models/novel_models.dart';
 import '../services/novel_api_service.dart';
+import 'package:html2md/html2md.dart' as html2md;
+import 'package:markdown/markdown.dart' as md;
+import 'package:html_unescape/html_unescape.dart';
 
 class EpubDownloadPage extends StatefulWidget {
   final NovelInfo novelInfo;
@@ -25,6 +28,7 @@ class EpubDownloadPage extends StatefulWidget {
 
 class _EpubDownloadPageState extends State<EpubDownloadPage> {
   final NovelApiService _apiService = NovelApiService();
+  final HtmlUnescape unescape = HtmlUnescape();
   bool _isDownloading = false;
   int _downloadedChapters = 0;
   int _totalChapters = 0;
@@ -97,7 +101,7 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
         '    <dc:title>${_escapeXml(widget.novelInfo.nome)}</dc:title>\n',
       );
       contentOpf.write(
-        '    <dc:creator opf:role="aut">Autor Desconhecido</dc:creator>\n',
+        '    <dc:creator opf:role="aut">NovelHub App</dc:creator>\n',
       );
       contentOpf.write('    <dc:language>pt-BR</dc:language>\n');
       contentOpf.write(
@@ -149,7 +153,7 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
       for (int i = 0; i < chaptersToDownload.length; i++) {
         final chapterId = 'chapter-${i + 1}';
         contentOpf.write(
-          '    <item id="$chapterId" href="chapter-${i + 1}.xhtml" media-type="application/xhtml+xml"/>\n',
+          '    <item id="$chapterId" href="chapter-${i + 1}.html" media-type="application/xhtml+xml"/>\n',
         );
       }
 
@@ -193,7 +197,7 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
             final index = entry.key;
             final chapter = entry.value;
             final chapterName = chapter[0];
-            return '<navPoint id="navpoint-${index + 1}" playOrder="${index + 1}"><navLabel><text>${_escapeXml(chapterName)}</text></navLabel><content src="chapter-${index + 1}.xhtml"/></navPoint>';
+            return '<navPoint id="navpoint-${index + 1}" playOrder="${index + 1}"><navLabel><text>${_escapeXml(chapterName)}</text></navLabel><content src="chapter-${index + 1}.html"/></navPoint>';
           }).join('\n    ')}
   </navMap>
 </ncx>''';
@@ -222,9 +226,13 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
             chapterId,
           );
 
+          String cleanHtml = unescape.convert(chapterContent.content);
+          String markdown = html2md.convert(cleanHtml);
+          String cleanedHtml = md.markdownToHtml(markdown);
+
           // Create chapter XHTML content
           final chapterXhtml =
-              '''<?xml version="1.0" encoding="UTF-8"?>
+              '''
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -233,14 +241,14 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
 </head>
 <body>
   <h1>$chapterName</h1>
-  <div class="chapter-content">${chapterContent.content}</div>
+  <div class="chapter-content">$cleanedHtml</div>
 </body>
-</html>''';
+</html>'''; // <?xml version="1.0" encoding="UTF-8"?> at first line
 
           // Add chapter to archive
           archive.addFile(
             ArchiveFile(
-              'OEBPS/chapter-${i + 1}.xhtml',
+              'OEBPS/chapter-${i + 1}.html',
               chapterXhtml.length,
               utf8.encode(chapterXhtml),
             ),
