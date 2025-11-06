@@ -39,7 +39,7 @@ Certifique-se de que o Flutter está instalado. Caso não esteja, siga o [guia o
 1. Clone o repositório:
 
 ```bash
-git clone https://github.com/your-username/NovelHub.git
+git clone https://github.com/luanwillianzh/NovelHub.git
 cd NovelHub
 ```
 
