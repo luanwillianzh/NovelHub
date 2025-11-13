@@ -1,136 +1,131 @@
 # NovelHub
 
-A feature-rich Flutter application for reading and managing novels from multiple online sources. NovelHub aggregates content from various novel platforms and provides an enhanced reading experience with EPUB export functionality.
+Um aplicativo Flutter repleto de recursos para leitura e gerenciamento de novels de múltiplas fontes online. O NovelHub agrega conteúdo de diversas plataformas e oferece uma experiência de leitura aprimorada com funcionalidade de exportação em formato EPUB.
 
-## 🚀 Features
+## ✨ Recursos
 
-- **Multi-source Novel Aggregation**: Search and read novels from multiple platforms including CentralNovel, Illusia, and NovelMania
-- **Comprehensive Search**: Find novels by title across all integrated sources
-- **Detailed Novel Information**: View novel descriptions, covers, genres, and chapter lists
-- **Enhanced Reading Experience**: Read chapters in a clean, distraction-free interface with previous/next navigation
-- **Chapter Management**: Browse chapters with sorting options and easy navigation
-- **EPUB Export**: Download entire novels or selected chapters as EPUB files for offline reading
-- **Customizable Downloads**: Select specific chapter ranges for EPUB creation
-- **Dark Theme**: Reading-friendly dark mode interface
+* **Agregação Multiplataforma**: Pesquise e leia novels de várias fontes, incluindo CentralNovel, Illusia e NovelMania
+* **Busca Abrangente**: Encontre novels por título em todas as fontes integradas
+* **Informações Detalhadas**: Veja descrições, capas, gêneros e listas de capítulos das novels
+* **Leitura Aprimorada**: Leia capítulos em uma interface limpa e sem distrações, com botões de navegação anterior/próximo
+* **Gerenciamento de Capítulos**: Navegue pelos capítulos com opções de ordenação e fácil acesso
+* **Exportação para EPUB**: Baixe novels completas ou capítulos selecionados para leitura offline
+* **Downloads Personalizados**: Escolha intervalos específicos de capítulos para gerar arquivos EPUB
+* **Tema Escuro**: Interface em modo escuro para leitura confortável
 
-## 🛠️ Technologies Used
+## 🛠️ Tecnologias Utilizadas
 
-- **Flutter**: Cross-platform mobile application framework
-- **Dart**: Programming language for Flutter applications
-- **HTML Parsing**: Parse content from various novel websites
-- **HTTP Client (Dio)**: Handle API requests and web scraping
-- **Archives (Zip)**: Create EPUB files (which are essentially ZIP archives)
-- **Path Provider**: Manage file system paths for downloads
+* **Flutter**: Framework para desenvolvimento de aplicativos multiplataforma
+* **Dart**: Linguagem de programação usada pelo Flutter
+* **Análise de HTML**: Extração e tratamento de conteúdo de sites de novels
+* **Cliente HTTP (Dio)**: Gerenciamento de requisições e scraping de dados
+* **Arquivos (Zip)**: Criação de arquivos EPUB (que são essencialmente arquivos ZIP)
+* **Path Provider**: Gerenciamento de diretórios e caminhos de armazenamento para downloads
 
-## 📱 Screenshots
+## ⚙️ Requisitos
 
-*Note: Actual screenshots would be added here in a real implementation*
+* Flutter SDK (versão 3.9.0 ou superior)
+* Dart SDK (versão 3.9.0 ou superior)
+* Conexão com a internet para buscar conteúdo das novels
 
-## 📋 Requirements
+## 🚀 Iniciando o Projeto
 
-- Flutter SDK (version 3.9.0 or higher)
-- Dart SDK (version 3.9.0 or higher)
-- Internet connection for fetching novel content
+### Pré-requisitos
 
-## 🚀 Getting Started
+Certifique-se de que o Flutter está instalado. Caso não esteja, siga o [guia oficial de instalação](https://flutter.dev/docs/get-started/install).
 
-### Prerequisites
+### Instalação
 
-Make sure you have Flutter installed. If not, follow the [official installation guide](https://flutter.dev/docs/get-started/install).
+1. Clone o repositório:
 
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/NovelHub.git
+git clone https://github.com/luanwillianzh/NovelHub.git
 cd NovelHub
 ```
 
-2. Install dependencies:
+2. Instale as dependências:
+
 ```bash
 flutter pub get
 ```
 
-3. Run the application:
+3. Execute o aplicativo:
+
 ```bash
 flutter run
 ```
 
-### Building for Production
+### Gerar Versão de Produção
 
-To build a release version of the app:
+Para compilar a versão de release do app:
+
 ```bash
 flutter build apk --release
 ```
-or for iOS:
-```bash
-flutter build ios --release
-```
 
-## 🎯 Usage
+## 📖 Uso
 
-1. **Search for Novels**: Use the search bar on the home screen to search for novels across all integrated sources
-2. **Browse Latest Releases**: View the latest releases from all platforms when not searching
-3. **Read Novels**: Tap on any novel to view its details and chapters
-4. **Navigate Chapters**: Use the previous/next buttons at the bottom of each chapter
-5. **Export as EPUB**: Tap the download icon on the novel details screen to create an EPUB file
-6. **Customize Downloads**: Select specific chapters to include in your EPUB export
+1. **Pesquisar Novels**: Use a barra de busca na tela inicial para procurar novels em todas as fontes integradas
+2. **Explorar Lançamentos Recentes**: Veja as últimas atualizações das plataformas quando não estiver pesquisando
+3. **Ler Novels**: Toque em qualquer novel para visualizar seus detalhes e capítulos
+4. **Navegar entre Capítulos**: Use os botões anterior/próximo na parte inferior da tela de leitura
+5. **Exportar como EPUB**: Toque no ícone de download na tela de detalhes para gerar um arquivo EPUB
+6. **Downloads Personalizados**: Selecione capítulos específicos para incluir na exportação
 
-## 🏗️ Architecture
+## 🧩 Arquitetura
 
-The application follows a modular architecture with the following key components:
+O aplicativo segue uma arquitetura modular com os seguintes componentes principais:
 
 ### Models
-- `NovelSearchResult`: Represents a novel in search results
-- `NovelInfo`: Contains detailed information about a novel
-- `ChapterContent`: Holds chapter content with navigation data
+
+* `NovelSearchResult`: Representa uma novel nos resultados de busca
+* `NovelInfo`: Contém informações detalhadas sobre uma novel
+* `ChapterContent`: Armazena o conteúdo de um capítulo com dados de navegação
 
 ### Services
-- `NovelApiService`: Handles all data fetching from web sources through scraping
-- Supports multiple platforms (CentralNovel, Illusia, NovelMania)
+
+* `NovelApiService`: Responsável por buscar dados das fontes via scraping
+* Suporte a múltiplas plataformas (CentralNovel, Illusia, NovelMania)
 
 ### Screens
-- `HomeScreen`: Main search and browsing interface
-- `NovelDetailPage`: Shows novel details, description, genres, and chapters
-- `ChapterDetailPage`: Displays chapter content with navigation
-- `EpubDownloaderPage`: Manages EPUB file creation and download options
 
-## 🌐 Supported Sources
+* `HomeScreen`: Tela principal de busca e navegação
+* `NovelDetailPage`: Exibe detalhes, descrição, gêneros e capítulos da novel
+* `ChapterDetailPage`: Mostra o conteúdo de cada capítulo com navegação
+* `EpubDownloaderPage`: Gerencia a criação e o download de arquivos EPUB
 
-- **CentralNovel**: Brazilian Portuguese novel platform
-- **Illusia**: Portuguese novel reading platform  
-- **NovelMania**: Portuguese novel aggregation platform
+## 🌐 Fontes Suportadas
 
-## ⚙️ Configuration
+* **CentralNovel**: Plataforma brasileira de novels
+* **Illusia**: Plataforma de leitura de novels em português
+* **NovelMania**: Plataforma agregadora de novels em português
 
-The application can be configured through the `pubspec.yaml` file. Key dependencies include:
+## ⚙️ Configuração
 
-- `dio`: HTTP client for web requests
-- `html`: HTML parsing for extracting content
-- `archive`: Create ZIP/EPUB archives
-- `path_provider`: File system path management
-- `file_picker`: File selection interface
+O aplicativo pode ser configurado através do arquivo `pubspec.yaml`. Dependências principais incluem:
 
-## 🔧 Contributing
+* `dio`: Cliente HTTP para requisições web
+* `html`: Análise e extração de conteúdo HTML
+* `archive`: Criação de arquivos ZIP/EPUB
+* `path_provider`: Gerenciamento de diretórios e caminhos locais
+* `file_picker`: Interface para seleção de arquivos
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 🤝 Contribuindo
 
-## 📄 License
+1. Faça um fork do repositório
+2. Crie um branch de funcionalidade (`git checkout -b feature/nova-funcionalidade`)
+3. Faça suas alterações (`git commit -m 'Adiciona nova funcionalidade'`)
+4. Envie o branch (`git push origin feature/nova-funcionalidade`)
+5. Abra um Pull Request
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🐞 Problemas e Bugs
 
-## 🐛 Issues and Bugs
+Se encontrar algum problema ou bug, abra uma issue no repositório com informações detalhadas e passos para reproduzir o erro.
 
-If you encounter any issues or bugs, please open an issue in the repository with detailed information about the problem and steps to reproduce it.
+## 💬 Suporte
 
-## 🤝 Support
-
-For support, please open an issue in the repository or contact the project maintainers.
+Para suporte, abra uma issue no repositório ou entre em contato com os mantenedores do projeto.
 
 ---
 
-**Note**: This application performs web scraping to aggregate content from various novel platforms. Please respect the terms of service of these platforms and use the application responsibly.
+**Nota**: Este aplicativo realiza web scraping para agregar conteúdo de diferentes plataformas de novels. Respeite os termos de uso dessas plataformas e utilize o aplicativo de forma responsável.
