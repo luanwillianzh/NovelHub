@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../models/novel_models.dart';
 import '../services/novel_api_service.dart';
+import '../services/novel_database_provider.dart';
+import 'package:provider/provider.dart';
 
 class ChapterDetailPage extends StatefulWidget {
-  final String novelId;
+  final NovelSearchResult novelInfo;
   final String chapterId;
 
   const ChapterDetailPage({
     super.key,
-    required this.novelId,
+    required this.novelInfo,
     required this.chapterId,
   });
 
@@ -22,13 +24,14 @@ class ChapterDetailPage extends StatefulWidget {
 class _ChapterDetailPageState extends State<ChapterDetailPage> {
   final NovelApiService _apiService = NovelApiService();
   late Future<ChapterContent> _chapterFuture;
+  late NovelDatabaseProvider _dbProvider;
 
   @override
   void initState() {
     super.initState();
     // Fetch the chapter content when the widget is initialized
     _chapterFuture =
-        _apiService.getChapterAll(widget.novelId, widget.chapterId);
+        _apiService.getChapterAll(widget.novelInfo.url, widget.chapterId);
   }
 
   /// Navigates to a different chapter, replacing the current screen
@@ -38,7 +41,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
       MaterialPageRoute(
         // Create a new instance of the screen
         builder: (context) => ChapterDetailPage(
-          novelId: widget.novelId,
+          novelInfo: widget.novelInfo,
           chapterId: newChapterId,
         ),
       ),
@@ -47,6 +50,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    _dbProvider = Provider.of<NovelDatabaseProvider>(context);
     return Scaffold(
       appBar: AppBar(
         // The FutureBuilder will update this title once data is loaded
@@ -82,6 +86,10 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
 
           final chapter = snapshot.data!;
 
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _addToHistory(chapter);
+          });
+
           // We use a CustomScrollView to combine scrollable content
           // with a bottom navigation bar that doesn't move.
           return Column(
@@ -108,7 +116,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
                           ),
                         ),
                       const Divider(height: 32),
-                      
+
                       // --- RENDER THE HTML CONTENT ---
                       HtmlWidget(
                         chapter.content,
@@ -118,7 +126,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
                   ),
                 ),
               ),
-              
+
               // --- Bottom Navigation Bar ---
               _buildChapterNavigation(chapter),
             ],
@@ -126,6 +134,26 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
         },
       ),
     );
+  }
+
+  Future<void> _addToHistory(ChapterContent chapter) async {
+    try {
+      // Use the chapter title as the display title for history
+      String displayTitle = chapter.title;
+      if (chapter.subtitle.isNotEmpty && chapter.subtitle != chapter.title) {
+        displayTitle = "${chapter.title} - ${chapter.subtitle}";
+      } else if (chapter.subtitle.isNotEmpty) {
+        displayTitle = chapter.subtitle;
+      }
+
+      await _dbProvider.addToHistory(
+        widget.novelInfo,
+        lastChapterId: widget.chapterId,
+        lastChapterTitle: displayTitle,
+      );
+    } catch (e) {
+      print('Error adding to history: $e');
+    }
   }
 
   /// Builds the "Previous" and "Next" buttons at the bottom
@@ -146,7 +174,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
                 ? () => _navigateToChapter(chapter.prevChapterId!)
                 : null,
           ),
-          
+
           // Next Chapter Button
           TextButton.icon(
             label: const Text('Next'),

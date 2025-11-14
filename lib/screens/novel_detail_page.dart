@@ -1,8 +1,10 @@
 // file: lib/screens/novel_detail_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/novel_models.dart';
 import '../services/novel_api_service.dart';
+import '../services/novel_database_provider.dart';
 import 'chapter_detail_page.dart';
 import 'epub_downloader_page.dart';
 
@@ -18,6 +20,7 @@ class NovelDetailPage extends StatefulWidget {
 class _NovelDetailPageState extends State<NovelDetailPage> {
   final NovelApiService _apiService = NovelApiService();
   late Future<NovelInfo> _novelInfoFuture;
+  late NovelDatabaseProvider _dbProvider;
 
   bool _chaptersReversed = false;
 
@@ -29,6 +32,8 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    _dbProvider = Provider.of<NovelDatabaseProvider>(context);
+    
     return Scaffold(
       body: FutureBuilder<NovelInfo>(
         future: _novelInfoFuture,
@@ -51,21 +56,46 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
           }
 
           final novel = snapshot.data!;
+          final novelSearchResult = NovelSearchResult(
+            nome: novel.nome,
+            url: widget.novelId,
+            cover: novel.cover,
+          );
+
+          // Check if novel is in favorites and history when data loads
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _dbProvider.checkIfFavorite(widget.novelId);
+            _dbProvider.checkIfInHistory(widget.novelId);
+          });
 
           return CustomScrollView(
-            slivers: [_buildSliverAppBar(novel), _buildNovelDetails(novel)],
+            slivers: [_buildSliverAppBar(novel, novelSearchResult), _buildNovelDetails(novel)],
           );
         },
       ),
     );
   }
 
-  Widget _buildSliverAppBar(NovelInfo novel) {
+  Widget _buildSliverAppBar(NovelInfo novel, NovelSearchResult novelSearchResult) {
     return SliverAppBar(
       expandedHeight: 350.0,
       floating: false,
       pinned: true,
       actions: [
+        Consumer<NovelDatabaseProvider>(
+          builder: (context, dbProvider, child) {
+            return IconButton(
+              icon: Icon(
+                dbProvider.isNovelFavorite ? Icons.favorite : Icons.favorite_border,
+                color: dbProvider.isNovelFavorite ? Colors.red : null,
+              ),
+              onPressed: () async {
+                await dbProvider.toggleFavorite(novelSearchResult);
+              },
+              tooltip: dbProvider.isNovelFavorite ? 'Remove from favorites' : 'Add to favorites',
+            );
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.download),
           tooltip: 'Download EPUB',
@@ -160,6 +190,50 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
           child: Text(novel.desc, style: textTheme.bodyMedium),
         ),
 
+        // --- Check if novel is in history and show continue reading button if available
+        Consumer<NovelDatabaseProvider>(
+          builder: (context, dbProvider, child) {
+            if (dbProvider.isNovelInHistory && dbProvider.historyItem != null) {
+              final lastChapterId = dbProvider.historyItem!['last_chapter_id'] as String?;
+              final lastChapterTitle = dbProvider.historyItem!['last_chapter_title'] as String?;
+              
+              if (lastChapterId != null && lastChapterTitle != null) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChapterDetailPage(
+                            novelInfo: NovelSearchResult(nome: novel.nome, url: widget.novelId, cover: novel.cover),
+                            chapterId: lastChapterId,
+                          ),
+                        ),
+                      ).then((_) {
+                        // Update the history when user returns from reading
+                        final novelSearchResult = NovelSearchResult(
+                          nome: novel.nome,
+                          url: widget.novelId,
+                          cover: novel.cover,
+                        );
+                        dbProvider.addToHistory(novelSearchResult);
+                      });
+                    },
+                    icon: const Icon(Icons.bookmark),
+                    label: Text('Continue Lendo: $lastChapterTitle'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                );
+              }
+            }
+            return const SizedBox.shrink(); // Return empty widget if not in history
+          },
+        ),
+
         // --- Cabeçalho dos Capítulos (Já era seguro) ---
         Padding(
           padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
@@ -194,7 +268,7 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => ChapterDetailPage(
-                    novelId: widget.novelId,
+                    novelInfo: NovelSearchResult(nome: novel.nome, url: widget.novelId, cover: novel.cover),
                     chapterId: chapterId,
                   ),
                 ),

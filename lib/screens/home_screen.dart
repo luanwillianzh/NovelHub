@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/novel_models.dart';
 import '../services/novel_api_service.dart';
+import '../services/novel_database_provider.dart';
 import 'novel_detail_page.dart';
+import 'favorites_screen.dart';
+import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -78,6 +82,28 @@ class _HomeScreenState extends State<HomeScreen> {
           // This triggers the search when the user hits 'enter'
           onSubmitted: (query) => _performSearch(query), 
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const FavoritesScreen()),
+              );
+            },
+            tooltip: 'Favorites',
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HistoryScreen()),
+              );
+            },
+            tooltip: 'Reading History',
+          ),
+        ],
       ),
       // This FutureBuilder is the same as before.
       // It just points to _displayFuture, which we can change.

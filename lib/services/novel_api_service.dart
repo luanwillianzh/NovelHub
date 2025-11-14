@@ -27,26 +27,26 @@ class NovelApiService {
 
   // --- Utility to get text or attr safely ---
   String _safeQueryText(dom.Element? element, [String? fallback = '']) =>
-      (element?.text?.trim()) ?? fallback ?? '';
+      (element?.text.trim()) ?? fallback ?? '';
 
-  // Esta já estava correta, mas padronizando
   String _safeQueryAttr(dom.Element? element, String attr,
-          [String? fallback = '']) =>
+      [String? fallback = '']) =>
       element?.attributes[attr] ?? fallback ?? '';
 
-  // CORRIGIDO: Adicionado '?.' antes de .trim()
   String _safeQueryHtml(dom.Element? element, [String? fallback = '']) =>
-      (element?.innerHtml?.trim()) ?? fallback ?? '';
+      (element?.innerHtml.trim()) ?? fallback ?? '';
 
   // --- Aggregator Methods (Public API) ---
 
   Future<List<NovelSearchResult>> searchAll(String text) async {
+    // Since we added try-catch blocks inside the specific search methods,
+    // Future.wait will complete successfully even if one source fails.
     final [central, illusia, mania] = await Future.wait([
       _centralSearch(text),
       _illusiaSearch(text),
       _maniaSearch(text),
     ]);
-    // Note: We flat-map the results
+
     return [...central, ...illusia, ...mania];
   }
 
@@ -72,41 +72,26 @@ class NovelApiService {
     final source = parts.first;
     final id = parts.sublist(1).join('-');
 
-    // Fetch chapter content and full novel info (for nav) in parallel
-    // Future.wait returns a List<Object> when types are mixed.
     final results = await Future.wait([
       (() async {
         switch (source) {
           case 'central':
-            return _centralGetChapter(
-              chapterId,
-            ); // Returns Future<ChapterContent>
+            return _centralGetChapter(chapterId);
           case 'illusia':
-            return _illusiaGetChapter(
-              id,
-              chapterId,
-            ); // Returns Future<ChapterContent>
+            return _illusiaGetChapter(id, chapterId);
           case 'mania':
-            return _maniaGetChapter(
-              id,
-              chapterId,
-            ); // Returns Future<ChapterContent>
+            return _maniaGetChapter(id, chapterId);
           default:
             throw Exception('Unknown novel source');
         }
       })(),
-      getNovelInfoAll(novelId), // Returns Future<NovelInfo>
+      getNovelInfoAll(novelId),
     ]);
 
-    //
-    // --- THIS IS THE FIX ---
-    // We must cast the results from Object to their proper types
-    //
     final chapterData = results[0] as ChapterContent;
     final novelInfo = results[1] as NovelInfo;
 
-    // Now 'novelInfo' is correctly typed as 'NovelInfo'
-    final chapterList = novelInfo.chapters; // [['Name', 'id'], ...]
+    final chapterList = novelInfo.chapters;
     final currentIndex = chapterList.indexWhere((ch) => ch[1] == chapterId);
 
     String? prevChapterId;
@@ -119,7 +104,6 @@ class NovelApiService {
       nextChapterId = chapterList[currentIndex + 1][1];
     }
 
-    // Combine results
     return ChapterContent(
       title: chapterData.title,
       subtitle: chapterData.subtitle,
@@ -135,11 +119,9 @@ class NovelApiService {
     final source = parts.first;
     final id = parts.sublist(1).join('-');
 
-    // This re-uses your existing private methods
     switch (source) {
       case 'central':
-        // Note: _centralGetChapter doesn't need the novel 'id'
-        return _centralGetChapter(chapterId); 
+        return _centralGetChapter(chapterId);
       case 'illusia':
         return _illusiaGetChapter(id, chapterId);
       case 'mania':
@@ -151,7 +133,7 @@ class NovelApiService {
 
   Future<List<NovelSearchResult>> lancamentosAll() async {
     final [central, illusia, mania] = await Future.wait([
-      _centralSearch(""), // CentralNovel doesn't have a dedicated page
+      _centralSearch(""),
       _illusiaLancamentos(),
       _maniaLancamentos(),
     ]);
@@ -171,27 +153,23 @@ class NovelApiService {
 
     final lista = $.querySelectorAll(".eplister a");
 
-    // --- START OF FIX ---
-    // You cannot use .where((_, i) => ...) in Dart.
-    // Use .asMap().entries.where() to filter by index.
     final chapters = lista
-        .asMap() // Converts List<Element> to Map<int, Element>
-        .entries // Gets an iterable of MapEntry<int, Element>
-        .where((entry) => entry.key % 2 == 0) // entry.key is the index (i)
-        .map((entry) => entry.value) // entry.value is the Element (a)
+        .asMap()
+        .entries
+        .where((entry) => entry.key % 2 == 0)
+        .map((entry) => entry.value)
         .toList()
-        .reversed // Reverse
+        .reversed
         .map((a) {
-          final divs = a.querySelectorAll("div");
-          final text = divs.take(2).map((d) => _safeQueryText(d)).join(" - ");
-          final href = _safeQueryAttr(
-            a,
-            "href",
-          ).split('/').lastWhere((s) => s.isNotEmpty);
-          return [text, href];
-        })
+      final divs = a.querySelectorAll("div");
+      final text = divs.take(2).map((d) => _safeQueryText(d)).join(" - ");
+      final href = _safeQueryAttr(
+        a,
+        "href",
+      ).split('/').lastWhere((s) => s.isNotEmpty);
+      return [text, href];
+    })
         .toList();
-    // --- END OF FIX ---
 
     final genres = $.querySelectorAll(".genxed a").map((a) {
       final href = _safeQueryAttr(
@@ -225,104 +203,101 @@ class NovelApiService {
   }
 
   Future<List<NovelSearchResult>> _centralSearch(String text) async {
-    const url = "https://centralnovel.com/wp-admin/admin-ajax.php";
-    final data = {'action': 'ts_ac_do_search', 'ts_ac_query': text};
-
-    final response = await _dio.post(
-      url,
-      data: data,
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        responseType: ResponseType.plain, // Correto, como você já fez
-        headers: {
-          "Accept": "*/*",
-          "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3",
-        },
-      ),
-    );
-
-    // --- INÍCIO DA CORREÇÃO ---
-    
-    // Etapa 1: Decodificar com segurança
-    final Map<String, dynamic> dataMap;
     try {
-      dataMap = jsonDecode(response.data) as Map<String, dynamic>;
-    } catch (e) {
-      print('Falha ao decodificar JSON da CentralSearch: $e');
-      return []; // Retorna lista vazia se o JSON estiver quebrado
-    }
+      const url = "https://centralnovel.com/wp-admin/admin-ajax.php";
+      final data = {'action': 'ts_ac_do_search', 'ts_ac_query': text};
 
-    // Etapa 2: Obter 'series' com segurança
-    // Use 'as List<dynamic>?' (com interrogação) e '?? []' (fallback)
-    final List<dynamic> seriesList = (dataMap['series'] as List<dynamic>?) ?? [];
-
-    // Etapa 3: Verificar se a lista está vazia antes de pegar [0]
-    if (seriesList.isEmpty) {
-      return []; // Nenhuma série encontrada
-    }
-
-    // Etapa 4: Obter 'seriesObject' com segurança
-    final Map<String, dynamic> seriesObject =
-        (seriesList[0] as Map<String, dynamic>?) ?? {};
-
-    // Etapa 5: Obter 'lista' (de 'all') com segurança
-    final List<dynamic> lista = (seriesObject['all'] as List<dynamic>?) ?? [];
-
-    // --- FIM DA CORREÇÃO ---
-
-    // O 'map' restante é seguro, mas podemos adicionar uma verificação
-    return lista.map((a) {
-      // Verifica se 'a' é realmente um Map
-      if (a is! Map<String, dynamic>) {
-        return null; // Ignora este item se não for um Map
-      }
-      
-      final aMap = a; // Já sabemos que é um Map
-
-      // Garante que os campos não sejam nulos
-      final postLink = aMap['post_link'] as String? ?? '';
-      final postTitle = aMap['post_title'] as String? ?? 'Sem Título';
-      final postImage = aMap['post_image'] as String? ?? '';
-
-      if (postLink.isEmpty) {
-        return null; // Ignora se não houver link
-      }
-
-      final urlParts = postLink.split('/');
-      final urlSlug = urlParts.lastWhere((s) => s.isNotEmpty, orElse: () => '');
-
-      if (urlSlug.isEmpty) {
-        return null; // Ignora se o slug for inválido
-      }
-
-      return NovelSearchResult(
-        nome: postTitle,
-        url: 'central-$urlSlug',
-        cover: postImage,
+      final response = await _dio.post(
+        url,
+        data: data,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.plain,
+          headers: {
+            "Accept": "*/*",
+            "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3",
+          },
+        ),
       );
-    }).whereType<NovelSearchResult>().toList(); // Filtra quaisquer 'null'
+
+      final Map<String, dynamic> dataMap;
+      try {
+        dataMap = jsonDecode(response.data) as Map<String, dynamic>;
+      } catch (e) {
+        return [];
+      }
+
+      final List<dynamic> seriesList = (dataMap['series'] as List<dynamic>?) ?? [];
+
+      if (seriesList.isEmpty) {
+        return [];
+      }
+
+      final Map<String, dynamic> seriesObject =
+          (seriesList[0] as Map<String, dynamic>?) ?? {};
+
+      final List<dynamic> lista = (seriesObject['all'] as List<dynamic>?) ?? [];
+
+      return lista.map((a) {
+        if (a is! Map<String, dynamic>) {
+          return null;
+        }
+
+        final aMap = a;
+
+        final postLink = aMap['post_link'] as String? ?? '';
+        final postTitle = aMap['post_title'] as String? ?? 'Sem Título';
+        final postImage = aMap['post_image'] as String? ?? '';
+
+        if (postLink.isEmpty) {
+          return null;
+        }
+
+        final urlParts = postLink.split('/');
+        final urlSlug = urlParts.lastWhere((s) => s.isNotEmpty, orElse: () => '');
+
+        if (urlSlug.isEmpty) {
+          return null;
+        }
+
+        return NovelSearchResult(
+          nome: postTitle,
+          url: 'central-$urlSlug',
+          cover: postImage,
+        );
+      }).whereType<NovelSearchResult>().toList();
+
+    } catch (e) {
+      print("Error in Central Search: $e");
+      return [];
+    }
   }
-  
+
   // ===== Illusia API Port =====
 
   Future<List<NovelSearchResult>> _illusiaLancamentos() async {
-    const url = "https://illusia.com.br/lancamentos/";
-    final response = await _dio.get(url);
-    final $ = html_parser.parse(response.data);
+    try {
+      const url = "https://illusia.com.br/lancamentos/";
+      final response = await _dio.get(url);
+      final $ = html_parser.parse(response.data);
 
-    return $.querySelectorAll("li._latest-updates").map((novel) {
-      final a = novel.querySelector("a");
-      final img = novel.querySelector("img");
-      final urlSlug = _safeQueryAttr(
-        a,
-        "href",
-      ).split('/').lastWhere((s) => s.isNotEmpty);
-      return NovelSearchResult(
-        url: 'illusia-$urlSlug',
-        nome: _safeQueryAttr(a, "title"),
-        cover: _safeQueryAttr(img, "src"),
-      );
-    }).toList();
+      return $.querySelectorAll("li._latest-updates").map((novel) {
+        final a = novel.querySelector("a");
+        final img = novel.querySelector("img");
+        final urlSlug = _safeQueryAttr(
+          a,
+          "href",
+        ).split('/').lastWhere((s) => s.isNotEmpty);
+        return NovelSearchResult(
+          url: 'illusia-$urlSlug',
+          nome: _safeQueryAttr(a, "title"),
+          cover: _safeQueryAttr(img, "src"),
+        );
+      }).toList();
+    } catch (e) {
+      print("Error in Illusia Lancamentos: $e");
+      return [];
+    }
   }
 
   Future<NovelInfo> _illusiaGetNovelInfo(String novel) async {
@@ -368,9 +343,9 @@ class NovelApiService {
   }
 
   Future<ChapterContent> _illusiaGetChapter(
-    String novel,
-    String chapter,
-  ) async {
+      String novel,
+      String chapter,
+      ) async {
     final url = 'https://illusia.com.br/story/$novel/$chapter/';
     final response = await _dio.get(url);
     final $ = html_parser.parse(response.data);
@@ -387,49 +362,57 @@ class NovelApiService {
   }
 
   Future<List<NovelSearchResult>> _illusiaSearch(String text) async {
-    final url =
-        'https://illusia.com.br/?s=${Uri.encodeComponent(text)}&post_type=fcn_story';
-    final response = await _dio.post(
-      url,
-    ); // Illusia search seems to be a POST? Your node code used .post
-    final $ = html_parser.parse(response.data);
+    try {
+      final url =
+          'https://illusia.com.br/?s=${Uri.encodeComponent(text)}&post_type=fcn_story';
+      final response = await _dio.post(url);
+      final $ = html_parser.parse(response.data);
 
-    return $.querySelectorAll("li.card").map((a) {
-      final link = a.querySelector("a");
-      final img = a.querySelector("img");
-      final urlSlug = _safeQueryAttr(
-        link,
-        "href",
-      ).split('/').lastWhere((s) => s.isNotEmpty);
-      return NovelSearchResult(
-        nome: _safeQueryText(link),
-        url: 'illusia-$urlSlug',
-        cover: _safeQueryAttr(img, "src"),
-      );
-    }).toList();
+      return $.querySelectorAll("li.card").map((a) {
+        final link = a.querySelector("a");
+        final img = a.querySelector("img");
+        final urlSlug = _safeQueryAttr(
+          link,
+          "href",
+        ).split('/').lastWhere((s) => s.isNotEmpty);
+        return NovelSearchResult(
+          nome: _safeQueryText(link),
+          url: 'illusia-$urlSlug',
+          cover: _safeQueryAttr(img, "src"),
+        );
+      }).toList();
+    } catch (e) {
+      print("Error in Illusia Search: $e");
+      return [];
+    }
   }
 
   // ===== Mania API Port =====
 
   Future<List<NovelSearchResult>> _maniaLancamentos() async {
-    const url = "https://novelmania.com.br";
-    final response = await _dio.get(url);
-    final $ = html_parser.parse(response.data);
+    try {
+      const url = "https://novelmania.com.br";
+      final response = await _dio.get(url);
+      final $ = html_parser.parse(response.data);
 
-    return $.querySelectorAll(".novels .col-6").map((i) {
-      final a = i.querySelector("a");
-      final img = i.querySelector("img");
-      final h2 = i.querySelector("h2");
-      final urlSlug = _safeQueryAttr(
-        a,
-        "href",
-      ).split('/').lastWhere((s) => s.isNotEmpty);
-      return NovelSearchResult(
-        url: 'mania-$urlSlug',
-        nome: _safeQueryText(h2),
-        cover: _safeQueryAttr(img, "src"),
-      );
-    }).toList();
+      return $.querySelectorAll(".novels .col-6").map((i) {
+        final a = i.querySelector("a");
+        final img = i.querySelector("img");
+        final h2 = i.querySelector("h2");
+        final urlSlug = _safeQueryAttr(
+          a,
+          "href",
+        ).split('/').lastWhere((s) => s.isNotEmpty);
+        return NovelSearchResult(
+          url: 'mania-$urlSlug',
+          nome: _safeQueryText(h2),
+          cover: _safeQueryAttr(img, "src"),
+        );
+      }).toList();
+    } catch (e) {
+      print("Error in Mania Lancamentos: $e");
+      return [];
+    }
   }
 
   Future<NovelInfo> _maniaGetNovelInfo(String novel) async {
@@ -484,24 +467,29 @@ class NovelApiService {
   }
 
   Future<List<NovelSearchResult>> _maniaSearch(String text) async {
-    final url =
-        'https://novelmania.com.br/novels?titulo=${Uri.encodeComponent(text)}';
-    final response = await _dio.get(url);
-    final $ = html_parser.parse(response.data);
+    try {
+      final url =
+          'https://novelmania.com.br/novels?titulo=${Uri.encodeComponent(text)}';
+      final response = await _dio.get(url);
+      final $ = html_parser.parse(response.data);
 
-    return $.querySelectorAll(".top-novels").map((a) {
-      final link = a.querySelector("a");
-      final h5 = a.querySelector("h5");
-      final img = a.querySelector("img");
-      final urlSlug = _safeQueryAttr(
-        link,
-        "href",
-      ).split('/').lastWhere((s) => s.isNotEmpty);
-      return NovelSearchResult(
-        nome: _safeQueryText(h5),
-        url: 'mania-$urlSlug',
-        cover: _safeQueryAttr(img, "src"),
-      );
-    }).toList();
+      return $.querySelectorAll(".top-novels").map((a) {
+        final link = a.querySelector("a");
+        final h5 = a.querySelector("h5");
+        final img = a.querySelector("img");
+        final urlSlug = _safeQueryAttr(
+          link,
+          "href",
+        ).split('/').lastWhere((s) => s.isNotEmpty);
+        return NovelSearchResult(
+          nome: _safeQueryText(h5),
+          url: 'mania-$urlSlug',
+          cover: _safeQueryAttr(img, "src"),
+        );
+      }).toList();
+    } catch (e) {
+      print("Error in Mania Search: $e");
+      return [];
+    }
   }
 }
