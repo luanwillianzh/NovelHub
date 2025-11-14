@@ -6,6 +6,7 @@ import '../services/novel_database_provider.dart';
 import 'novel_detail_page.dart';
 import 'favorites_screen.dart';
 import 'history_screen.dart';
+import 'settings_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -103,6 +104,16 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'Reading History',
           ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+            tooltip: 'Settings',
+          ),
         ],
       ),
       // This FutureBuilder is the same as before.
@@ -132,33 +143,84 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          return ListView.builder(
+          return GridView.builder(
+            padding: const EdgeInsets.all(8.0),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 200, // Maximum width of each grid item
+              mainAxisSpacing: 12.0,
+              crossAxisSpacing: 12.0,
+              childAspectRatio: 0.7, // Height/Width ratio for each item
+            ),
             itemCount: novels.length,
             itemBuilder: (context, index) {
               final novel = novels[index];
-              return ListTile(
-                leading: novel.cover.isNotEmpty
-                    ? Image.network(
-                        novel.cover,
-                        width: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.book, size: 50),
-                      )
-                    : const Icon(Icons.book, size: 50),
-                title: Text(novel.nome),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NovelDetailPage(
-                        novelId: novel.url,
-                      ),
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                elevation: 2.0,
+                child: Ink(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NovelDetailPage(
+                            novelId: novel.url,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Novel cover image
+                        Expanded(
+                          flex: 3,
+                          child: novel.cover.isNotEmpty
+                              ? Image.network(
+                                  novel.cover,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        color: Theme.of(context).colorScheme.surfaceVariant,
+                                        child: Icon(
+                                          Icons.book,
+                                          size: 48,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                )
+                              : Container(
+                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                  child: Icon(
+                                    Icons.book,
+                                    size: 48,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                        ),
+                        // Novel title
+                        Expanded(
+                          flex: 1,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              novel.nome,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                  // This is where you would navigate to a detail screen
-                  /* print('Tapped on: ${novel.url}'); */
-                },
+                  ),
+                ),
               );
             },
           );

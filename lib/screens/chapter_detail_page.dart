@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../models/novel_models.dart';
+import '../models/settings_model.dart';
+import '../services/settings_service.dart';
 import '../services/novel_api_service.dart';
 import '../services/novel_database_provider.dart';
 import 'package:provider/provider.dart';
@@ -103,7 +106,7 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
                     children: [
                       // Chapter Title
                       Text(
-                        chapter.title,
+                        chapter.title.replaceAll("\n", ""),
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       // Chapter Subtitle (if it exists)
@@ -111,16 +114,31 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
                           child: Text(
-                            chapter.subtitle,
+                            chapter.subtitle.replaceAll("\n", ""),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
                       const Divider(height: 32),
 
                       // --- RENDER THE HTML CONTENT ---
-                      HtmlWidget(
-                        chapter.content,
-                        textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                      Consumer<SettingsModel>(
+                        builder: (context, settingsModel, child) {
+                          return HtmlWidget(
+                            chapter.content, // Add indentation spaces
+                            textStyle: TextStyle(
+                              fontSize: settingsModel.fontSize,
+                              height: 1.5,
+                              textBaseline: TextBaseline.alphabetic,
+                            ),
+                            // Custom styling for paragraph elements to add indentation and justification
+                            customStylesBuilder: (element) {
+                              if (element.localName == 'p') {
+                                return {'text-align': 'justify'};
+                              }
+                              return null;
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),
