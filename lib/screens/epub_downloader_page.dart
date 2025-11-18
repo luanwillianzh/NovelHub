@@ -49,10 +49,10 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
   Future<void> _downloadNovelAsEpub() async {
     setState(() {
       _isDownloading = true;
-      _downloadedChapters = 0;
       _totalChapters = _includeAllChapters
           ? widget.novelInfo.chapters.length
           : (_endChapter - _startChapter + 1);
+      _downloadedChapters = 0;
       _progress = 0.0;
       _statusMessage = 'Iniciando download...';
     });
@@ -205,7 +205,7 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
         ArchiveFile('OEBPS/toc.ncx', tocNcx.length, utf8.encode(tocNcx)),
       );
 
-      // Download chapters
+      // Download chapters using the already defined chaptersToDownload variable from earlier in the function
       for (int i = 0; i < chaptersToDownload.length; i++) {
         if (!_isDownloading) break; // Cancel if user stopped
 
@@ -230,20 +230,35 @@ class _EpubDownloadPageState extends State<EpubDownloadPage> {
           String markdown = html2md.convert(cleanHtml);
           String cleanedHtml = md.markdownToHtml(markdown);
 
-          // Create chapter XHTML content
-          final chapterXhtml =
-              '''
+          // Create chapter XHTML content - use both title and subtitle if available
+          final chapterTitle = chapterContent.title.isNotEmpty ? chapterContent.title : chapterName;
+          final chapterSubtitle = chapterContent.subtitle.isNotEmpty ? chapterContent.subtitle : '';
+          final chapterXhtml = chapterSubtitle.isNotEmpty
+              ? '''
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <title>$chapterName</title>
+  <title>$chapterTitle</title>
   <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
 <body>
-  <h1>$chapterName</h1>
+  <h1>$chapterTitle</h1>
+  <h2>$chapterSubtitle</h2>
   <div class="chapter-content">$cleanedHtml</div>
 </body>
-</html>'''; // <?xml version="1.0" encoding="UTF-8"?> at first line
+</html>'''
+              : '''
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>$chapterTitle</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <h1>$chapterTitle</h1>
+  <div class="chapter-content">$cleanedHtml</div>
+</body>
+</html>''';
 
           // Add chapter to archive
           archive.addFile(
@@ -381,6 +396,65 @@ img {
     return '${DateTime.now().millisecondsSinceEpoch}-${DateTime.now().microsecondsSinceEpoch}';
   }
 
+  Future<int?> _showChapterSelectionDialog(String title, int currentValue) async {
+    return await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6, // 60% of screen height
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: widget.novelInfo.chapters.length,
+                  itemBuilder: (context, index) {
+                    final chapter = widget.novelInfo.chapters[index];
+                    final chapterId = chapter[1];
+                    final chapterTitle = chapter[0];
+                    final isSelected = (index + 1) == currentValue;
+
+                    return ListTile(
+                      title: Text(
+                        'Capítulo ${index + 1}: $chapterTitle',
+                        style: isSelected
+                            ? const TextStyle(fontWeight: FontWeight.bold)
+                            : null,
+                      ),
+                      subtitle: Text('ID: $chapterId'),
+                      trailing: isSelected ? const Icon(Icons.check) : null,
+                      onTap: () {
+                        Navigator.of(context).pop(index + 1); // Return 1-based index
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Cancel
+                },
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<File?> _downloadImage(String imageUrl, String fileName) async {
     try {
       final tempDir = await getTemporaryDirectory();
@@ -465,8 +539,7 @@ img {
                                     _includeAllChapters = value!;
                                     if (_includeAllChapters) {
                                       _startChapter = 1;
-                                      _endChapter =
-                                          widget.novelInfo.chapters.length;
+                                      _endChapter = widget.novelInfo.chapters.length;
                                     }
                                   });
                                 },
@@ -474,73 +547,114 @@ img {
                         const Text('Incluir todos os capítulos'),
                       ],
                     ),
+                    const SizedBox(height: 8),
                     if (!_includeAllChapters) ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                labelText: 'Capítulo inicial',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              enabled: !_isDownloading,
-                              controller:
-                                  TextEditingController(
-                                    text: _startChapter.toString(),
-                                  )..addListener(() {
-                                    final value =
-                                        int.tryParse(
-                                          TextEditingController(
-                                            text: _startChapter.toString(),
-                                          ).text,
-                                        ) ??
-                                        1;
-
-                                    if (value >= 1 &&
-                                        value <=
-                                            widget.novelInfo.chapters.length) {
-                                      setState(() {
-                                        _startChapter = value;
-                                      });
+                            child: ElevatedButton(
+                              onPressed: _isDownloading ? null : () async {
+                                final selectedChapter = await _showChapterSelectionDialog(
+                                  'Selecione o capítulo inicial',
+                                  _startChapter,
+                                );
+                                if (selectedChapter != null) {
+                                  setState(() {
+                                    _startChapter = selectedChapter;
+                                    // Make sure end chapter is not before start
+                                    if (_endChapter < _startChapter) {
+                                      _endChapter = _startChapter;
                                     }
-                                  }),
+                                  });
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Capítulo inicial',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Capítulo ${_startChapter}: ${widget.novelInfo.chapters[_startChapter - 1][0]}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                labelText: 'Capítulo final',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              enabled: !_isDownloading,
-                              controller:
-                                  TextEditingController(
-                                    text: _endChapter.toString(),
-                                  )..addListener(() {
-                                    final value =
-                                        int.tryParse(
-                                          TextEditingController(
-                                            text: _endChapter.toString(),
-                                          ).text,
-                                        ) ??
-                                        widget.novelInfo.chapters.length;
-
-                                    if (value >= _startChapter &&
-                                        value <=
-                                            widget.novelInfo.chapters.length) {
-                                      setState(() {
-                                        _endChapter = value;
-                                      });
+                            child: ElevatedButton(
+                              onPressed: _isDownloading ? null : () async {
+                                final selectedChapter = await _showChapterSelectionDialog(
+                                  'Selecione o capítulo final',
+                                  _endChapter,
+                                );
+                                if (selectedChapter != null) {
+                                  setState(() {
+                                    _endChapter = selectedChapter;
+                                    // Make sure end chapter is not before start
+                                    if (_endChapter < _startChapter) {
+                                      _startChapter = _endChapter;
                                     }
-                                  }),
+                                  });
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Capítulo final',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Capítulo ${_endChapter}: ${widget.novelInfo.chapters[_endChapter - 1][0]}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      // Display information about the selected range with chapter titles
+                      if (widget.novelInfo.chapters.isNotEmpty &&
+                          _startChapter >= 1 &&
+                          _startChapter <= widget.novelInfo.chapters.length &&
+                          _endChapter >= _startChapter &&
+                          _endChapter <= widget.novelInfo.chapters.length) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_endChapter - _startChapter + 1} capítulo(s) serão incluídos',
+                                style: const TextStyle(fontSize: 12, color: Colors.green),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 16),
                     Text(
